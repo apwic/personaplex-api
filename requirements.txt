@@ -1,3 +1,4 @@
+# Core dependencies
 moshi>=0.2.12
 torch>=2.2.0
 fastapi>=0.100.0
@@ -5,3 +6,17 @@ uvicorn>=0.23.0
 python-multipart>=0.0.6
 huggingface-hub>=0.24.0
 pydantic>=2.0.0
+
+# Audio processing
+torchaudio>=2.2.0
+soundfile>=0.12.0
+numpy>=1.24.0
+
+# Async utilities
+aiofiles>=23.0.0
+
+# Configuration
+pyyaml>=6.0
+
+# Logging
+structlog>=23.0.0

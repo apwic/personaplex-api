@@ -1,0 +1,46 @@
+# Replicate model configuration
+# See: https://replicate.com/docs/reference/yaml
+
+name: personaplex
+description: |
+  Real-time speech-to-speech conversational AI using nvidia/personaplex-7b-v1.
+  Based on Moshi, a full-duplex speech-text foundation model.
+
+license: apache-2.0
+visibility: public
+gpu: A100
+memory: 16GB
+timeout: 3600
+
+# Build environment
+build: |
+  pip install -r requirements.txt
+  apt-get update && apt-get install -y ffmpeg
+
+# Environment variables available at runtime
+env:
+  HF_TOKEN:
+    description: Hugging Face token for gated model access
+
+# Input schema
+input:
+  audio:
+    type: string
+    format: binary
+    description: WAV audio file bytes
+    title: Audio Input
+    default: ""
+
+# Output schema
+output:
+  audio:
+    type: string
+    format: binary
+    description: Generated WAV audio file bytes
+
+# Example for the model page
+examples:
+  - input:
+      audio: <binary wav file>
+    output:
+      audio: <binary wav file>
