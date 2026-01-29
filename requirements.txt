@@ -20,3 +20,6 @@ pyyaml>=6.0
 
 # Logging
 structlog>=23.0.0
+
+# Replicate/Cog (for local testing)
+cog>=0.9.0

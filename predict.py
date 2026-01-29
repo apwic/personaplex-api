@@ -1,80 +1,96 @@
 """Replicate prediction module for PersonaPlex speech-to-speech API.
 
-This module is loaded by Replicate to serve predictions.
+This module is loaded by Replicate to serve predictions using the Cog framework.
 """
 
 import os
-import io
 import tempfile
 from pathlib import Path
 
 import torch
 import torchaudio
+import cog
 
 
-def load_model():
-    """Load Moshi LM and Mimi codec models.
+class Predictor(cog.Predictor):
+    """PersonaPlex speech-to-speech predictor using Moshi and Mimi."""
 
-    Returns:
-        Tuple of (moshi_model, mimi_model)
-    """
-    from moshi.models import loaders
+    def setup(self):
+        """Load Moshi LM and Mimi codec models.
 
-    mimi_model = loaders.get_mimi(
-        device="cuda",
-        dtype=torch.bfloat16
+        This runs once when the container starts. Models are cached in memory
+        for subsequent predictions.
+        """
+        from moshi.models import loaders
+
+        # Set Hugging Face token for gated model access
+        hf_token = os.getenv("HF_TOKEN")
+        if hf_token:
+            import huggingface_hub
+            huggingface_hub.login(token=hf_token)
+
+        # Load Mimi codec for audio encoding/decoding
+        self.mimi_model = loaders.get_mimi(
+            device="cuda",
+            dtype=torch.bfloat16
+        )
+        self.mimi_model.set_num_codebooks(8)
+
+        # Load Moshi language model for speech generation
+        self.moshi_model = loaders.get_moshi_lm(
+            None,
+            device=torch.device("cuda"),
+            dtype=torch.bfloat16
+        )
+
+        # Set models to evaluation mode
+        self.mimi_model.eval()
+        self.moshi_model.eval()
+
+        self.sample_rate = 24000
+
+    @cog.input(
+        "audio",
+        type=cog.File,
+        description="Input audio file (WAV format, will be resampled to 24kHz if needed)",
+        help="Upload a WAV audio file to generate a speech response."
     )
-    mimi_model.set_num_codebooks(8)
+    def predict(self, audio):
+        """Run speech-to-speech inference.
 
-    moshi_model = loaders.get_moshi_lm(
-        None,
-        device=torch.device("cuda"),
-        dtype=torch.bfloat16
-    )
+        Args:
+            audio: Input audio file (WAV format)
 
-    return moshi_model, mimi_model
+        Returns:
+            Audio file (WAV format) - generated speech response
+        """
+        # Load audio file
+        waveform, orig_sr = torchaudio.load(audio.path)
 
+        # Convert to mono if stereo
+        if waveform.shape[0] > 1:
+            waveform = waveform.mean(dim=0, keepdim=True)
 
-def predict(
-    audio: bytes = None,
-) -> bytes:
-    """Run speech-to-speech inference.
+        # Resample to 24kHz if needed
+        if orig_sr != self.sample_rate:
+            resampler = torchaudio.transforms.Resample(orig_sr, self.sample_rate)
+            waveform = resampler(waveform)
 
-    Args:
-        audio: WAV audio bytes input
+        # Move to GPU
+        waveform = waveform.to("cuda")
 
-    Returns:
-        WAV audio bytes output
+        # Encode audio to frames using Mimi
+        with torch.no_grad():
+            frames = self.mimi_model.encode(waveform)
 
-    Raises:
-        ValueError: If no audio provided
-    """
-    if audio is None:
-        raise ValueError("audio input is required")
+            # Generate speech frames using Moshi LM
+            audio_out = self.moshi_model.generate(frames)
 
-    # Load model (cached across calls by Replicate)
-    if not hasattr(predict, "_models_loaded"):
-        predict.moshi_model, predict.mimi_model = load_model()
-        predict._models_loaded = True
+            # Decode frames back to audio using Mimi
+            output = self.mimi_model.decode(audio_out)
 
-    moshi_model = predict.moshi_model
-    mimi_model = predict.mimi_model
+        # Save to temporary file and return
+        output_path = tempfile.mktemp(suffix=".wav")
+        torchaudio.save(output_path, output.cpu(), self.sample_rate)
 
-    # Load and resample audio
-    waveform, orig_sr = torchaudio.load(io.BytesIO(audio))
-    if orig_sr != 24000:
-        resampler = torchaudio.transforms.Resample(orig_sr, 24000)
-        waveform = resampler(waveform)
-    if waveform.shape[0] > 1:
-        waveform = waveform.mean(dim=0, keepdim=True)
-
-    # Run inference
-    with torch.no_grad():
-        frames = mimi_model.encode(waveform.to("cuda"))
-        audio_out = moshi_model.generate(frames)
-        output = mimi_model.decode(audio_out)
-
-    # Save to bytes
-    buffer = io.BytesIO()
-    torchaudio.save(buffer, output.cpu(), 24000, format="wav")
-    return buffer.getvalue()
+        return cog.File(output_path)

@@ -32,3 +32,17 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Replicate/Cog
+cog-build/
+*.cog
+
+# Audio test files
+test_*.wav
+test_*.mp3
+*.test.wav
+
+# Temporary files
+tmp/
+temp/
+*.tmp
