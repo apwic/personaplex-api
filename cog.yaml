@@ -6,14 +6,12 @@ build:
   system_packages:
     - "ffmpeg"
   python_packages:
-    - "moshi>=0.2.12"
-    - "torch>=2.2.0"
-    - "torchaudio>=2.2.0"
-    - "huggingface-hub>=0.24.0"
+    - "moshi==0.2.12"
+    - "huggingface-hub==0.26.5"
+
+# Use NVIDIA PyTorch base image with CUDA pre-installed
+# This avoids downloading 2.5GB of CUDA libraries during build
+image: "nvidia/pytorch:24.03-py3"
 
 # Predictive interface
 predict: "predict.py:Predictor"
-
-# GPU configuration for Replicate deployment
-# Hardware is configured when deploying in Replicate UI or via API
-# Recommended: A100 GPU with 16GB memory
