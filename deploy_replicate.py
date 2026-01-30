@@ -21,7 +21,7 @@ print("Deploying PersonaPlex to Replicate...")
 
 try:
     model = replicate.models.create(
-        owner="anca",
+        owner="apwic",
         name="personaplex",
         visibility="public",
         hardware="A100",
@@ -38,4 +38,6 @@ try:
 
 except replicate.error.ReplicateError as e:
     print(f"Error: {e}")
-    print("\nAlternative: Push to GitHub and create via web UI at https://replicate.com/create")
+    print(
+        "\nAlternative: Push to GitHub and create via web UI at https://replicate.com/create"
+    )

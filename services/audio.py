@@ -4,7 +4,6 @@ import io
 import numpy as np
 import torch
 import torchaudio
-from torchaudio.io import AudioEncoder
 from pathlib import Path
 from typing import Tuple
 
